@@ -13,7 +13,7 @@ gulp.task('clean-typescript', () => {
     return del(directories.release + '/**');
 });
 
-gulp.task('clean', ['clean-typescript']);
+gulp.task('clean', gulp.series('clean-typescript'));
 
 gulp.task('lint-typescript', () => {
     return gulp
@@ -24,9 +24,9 @@ gulp.task('lint-typescript', () => {
         .pipe(tslint.report());
 });
 
-gulp.task('lint', ['lint-typescript']);
+gulp.task('lint', gulp.series('lint-typescript'));
 
-gulp.task('build-typescript', ['clean-typescript'], () => {
+gulp.task('build-typescript', gulp.series('clean-typescript', () => {
     var tsProject = ts.createProject('tsconfig.json');
     var tsResult =
         tsProject
@@ -48,8 +48,8 @@ gulp.task('build-typescript', ['clean-typescript'], () => {
                 }
             }))
         .pipe(gulp.dest(directories.release));
-});
+}));
 
-gulp.task('build', ['build-typescript']);
+gulp.task('build', gulp.series('build-typescript'));
 
-gulp.task('default', ['lint', 'build']);
+//gulp.task('default', ['lint', 'build']);
