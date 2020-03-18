@@ -45,7 +45,6 @@ export class Client {
         }
         const authIdResponseBody = JSON.parse(authIdResponse.text);
         const authId = authIdResponseBody.authId;
-        console.log('authId:' + authId);
 
         const tokenIdResponse = await superagent
             .post(authenticateUrl)
@@ -86,7 +85,6 @@ export class Client {
         }
         const tokenIdResponseBody = JSON.parse(tokenIdResponse.text);
         const authCookie = tokenIdResponseBody.tokenId;
-        console.log('authCookie:' + authCookie);
 
         // Extremely dirty
         // The http client throws an error due to an invalid URI from the API
@@ -97,25 +95,25 @@ export class Client {
             '&response_type=code&scope=' + encodeURIComponent(this.settings.EU.scope) +
             '&nonce=sdfdsfez';
 
-        console.log(authorizeUrl);
-
         let code: string;
 
         try {
-
-            const expectedAuthFailureResponse = await superagent
+            await superagent
                 .get(authorizeUrl)
                 .on('error', err => {
                     if (err.status === 302) {
                         //Expected
-                        console.log('Received 302');
-                        code = err.response.header['location'].split('=')[1].split('&')[0];
+                        code = err.response.header.location.split('=')[1].split('&')[0];
                     }
                 })
                 .redirects(0)
                 .set('Cookie', 'i18next=en-UK; amlbcookie=05; kauthSession="' + authCookie + '"');
         } catch (error) {
-            console.log('Error ' + error);
+            // Handle below
+        }
+
+        if (!code) {
+            throw 'Code was not returned in redirect from authorize request';
         }
 
         const expectedAccessTokenResponseUrl = this.settings.EU.auth_base_url + 'oauth2' + tokenIdResponseBody.realm +
@@ -135,11 +133,11 @@ export class Client {
         this.bearerToken = expectedAccessTokenResponseBody.access_token;
 
         if (!this.bearerToken) {
-            throw new Error("Token not set");
+            throw new Error('Token not set');
         }
     }
 
-    public async getVehicle(): Promise<IVehicle> {
+    public async getVehicles(): Promise<Array<IVehicle>> {
         const currentUserUrl = this.settings.EU.user_adapter_base_url + 'v1/users/current';
         const currentUserResponse = await superagent
             .get(currentUserUrl)
@@ -151,8 +149,6 @@ export class Client {
         const currentUserResponseBody = JSON.parse(currentUserResponse.text);
         const userId = currentUserResponseBody.userId;
 
-        console.log('Getting vehicles for user ' + userId);
-
         const vehiclesUrl = this.settings.EU.user_base_url + 'v1/users/' + userId + '/cars';
         const vehiclesResponse = await superagent
             .get(vehiclesUrl)
@@ -161,10 +157,14 @@ export class Client {
         if (vehiclesResponse.status !== 200) {
             throw new Error('Response was status code: ' + vehiclesResponse.status + ' (' + vehiclesResponse.text + ')');
         }
+        const vehicles: Array<IVehicle> = [];
         const vehiclesResponseBody = JSON.parse(vehiclesResponse.text);
-        return {
-            vin: vehiclesResponseBody.data[0].vin
-        };
+        for (let index = 0; index < vehiclesResponseBody.data.length; index++) {
+            vehicles.push({
+                vin: vehiclesResponseBody.data[index].vin
+            });
+        }
+        return vehicles;
     }
 
     public async requestClimateControlOff(vin : string) {
@@ -251,14 +251,13 @@ export class Client {
             throw new Error('Response was status code: ' + batteryResponse.status + ' (' + batteryResponse.text + ')');
         }
 
-        console.log(batteryResponse.text);
         const batteryResponseBody = JSON.parse(batteryResponse.text);
 
         let timestamp: Date;
-        try {
+        if (batteryResponseBody.data.attributes.lastUpdateTime.split(':').length === 3) {
             timestamp = moment(batteryResponseBody.data.attributes.lastUpdateTime, 'YYYY/MM/DD hh:mm:ssZ', false).toDate();
-        } catch (e) {
-            timestamp = moment(batteryResponseBody.data.attributes.lastUpdateTime, 'YYYY/MM/DD hh:mmZ', false).toDate()
+        } else {
+            timestamp = moment(batteryResponseBody.data.attributes.lastUpdateTime, 'YYYY/MM/DD hh:mmZ', false).toDate();
         }
 
         return {

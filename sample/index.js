@@ -12,23 +12,24 @@ const client = new carwings.Client({regionCode:secrets.regionCode});
     console.timeLog('login');
 
     console.time('getVehicle');
-    const vehicle = await client.getVehicle();
+    const vehicles = await client.getVehicles();
     console.timeEnd('getVehicle');
     console.timeLog('getVehicle');
+    console.log(vehicles);
 
     console.time('requestBatteryStatusUpdate');
-    await client.requestBatteryStatusUpdate('VINHERE');
+    await client.requestBatteryStatusUpdate(vehicles[0].vin);
     console.timeEnd('requestBatteryStatusUpdate');
     console.timeLog('requestBatteryStatusUpdate');
 
     console.time('requestBatteryStatus');
-    let status = await client.requestBatteryStatus('VINHERE');
+    let status = await client.requestBatteryStatus(vehicles[0].vin);
     console.timeEnd('batteryStatusUpdate');
     console.timeLog('batteryStatusUpdate');
     console.log(status);
 
-    console.time('requestClimateControlOff');
-    client.requestClimateControlOff('VINHERE');
-    console.timeEnd('requestClimateControlOff');
-    console.timeLog('requestClimateControlOff');
+    // console.time('requestClimateControlOff');
+    // client.requestClimateControlOff('VINHERE');
+    // console.timeEnd('requestClimateControlOff');
+    //console.timeLog('requestClimateControlOff');
 })();
