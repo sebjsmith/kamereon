@@ -1,6 +1,6 @@
 {
   "name": "kamereon",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Client for Kamereon API - initially for Nissan Leaf generation 2 support",
   "main": "release/Index.js",
   "scripts": {

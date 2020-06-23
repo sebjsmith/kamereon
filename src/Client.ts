@@ -142,17 +142,25 @@ export class Client {
         const currentUserResponse = await superagent
             .get(currentUserUrl)
             .set('Authorization', 'Bearer ' + this.bearerToken)
+            .on('error', err => {
+                    //Expected
+                    console.log('current users ' + err.response.text);
+            })
             .send();
+
         if (currentUserResponse.status !== 200) {
             throw new Error('Response was status code: ' + currentUserResponse.status + ' (' + currentUserResponse.text + ')');
         }
         const currentUserResponseBody = JSON.parse(currentUserResponse.text);
         const userId = currentUserResponseBody.userId;
 
-        const vehiclesUrl = this.settings.EU.user_base_url + 'v1/users/' + userId + '/cars';
+        const vehiclesUrl = this.settings.EU.user_base_url + 'v2/users/' + userId + '/cars';
         const vehiclesResponse = await superagent
             .get(vehiclesUrl)
             .set('Authorization', 'Bearer ' + this.bearerToken)
+            .on('error', err => {
+                    console.log('user cars ' + err.response.text);
+            })
             .send();
         if (vehiclesResponse.status !== 200) {
             throw new Error('Response was status code: ' + vehiclesResponse.status + ' (' + vehiclesResponse.text + ')');
