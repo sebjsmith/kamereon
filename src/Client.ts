@@ -31,20 +31,40 @@ export class Client {
         this.bearerToken = undefined;
 
         const authenticateUrl = this.settings.EU.auth_base_url + 'json/realms/root/realms/' + this.settings.EU.realm + '/authenticate';
-        const authIdResponse = await superagent
-            .post(authenticateUrl)
-            .set('Accept-Api-Version', API_VERSION)
-            .set('X-Username', 'anonymous')
-            .set('X-Password', 'anonymous')
-            .set('Content-Type', 'application/json')
-            .set('Accept', 'application/json')
-            .send();
 
-        if (authIdResponse.status !== 200) {
-            throw new Error('Response was status code: ' + authIdResponse.status + ' (' + authIdResponse.text + ')');
+        let authId = null;
+
+        const maxAttemptsOn401 = 10;
+        for (let attempt = 1; attempt <= maxAttemptsOn401; attempt++) {
+
+            console.log('Auth attempt ' + attempt);
+
+            try {
+                let authIdResponse = await superagent
+                    .post(authenticateUrl)
+                    .set('Accept-Api-Version', API_VERSION)
+                    .set('X-Username', 'anonymous')
+                    .set('X-Password', 'anonymous')
+                    .set('Content-Type', 'application/json')
+                    .set('Accept', 'application/json')
+                    .send();
+
+                const authIdResponseBody = JSON.parse(authIdResponse.text);
+                authId = authIdResponseBody.authId;
+                break;
+            } catch (error) {
+                if (error.status === 401 
+                        && error.response.text.contains('Session has timed out') 
+                        && attempt !== maxAttemptsOn401) {
+                    continue;
+                }
+                throw error;
+            }
         }
-        const authIdResponseBody = JSON.parse(authIdResponse.text);
-        const authId = authIdResponseBody.authId;
+
+        if (authId === null) {
+            throw 'Auth token unexpectedly null';
+        }
 
         const tokenIdResponse = await superagent
             .post(authenticateUrl)
@@ -81,7 +101,7 @@ export class Client {
             });
 
         if (tokenIdResponse.status !== 200) {
-            throw new Error('Response was status code: ' + authIdResponse.status + ' (' + authIdResponse.text + ')');
+            throw new Error('Response was status code: ' + tokenIdResponse.status + ' (' + tokenIdResponse.text + ')');
         }
         const tokenIdResponseBody = JSON.parse(tokenIdResponse.text);
         const authCookie = tokenIdResponseBody.tokenId;
@@ -143,8 +163,8 @@ export class Client {
             .get(currentUserUrl)
             .set('Authorization', 'Bearer ' + this.bearerToken)
             .on('error', err => {
-                    //Expected
-                    console.log('current users ' + err.response.text);
+                //Expected
+                console.log('current users ' + err.response.text);
             })
             .send();
 
@@ -159,7 +179,7 @@ export class Client {
             .get(vehiclesUrl)
             .set('Authorization', 'Bearer ' + this.bearerToken)
             .on('error', err => {
-                    console.log('user cars ' + err.response.text);
+                console.log('user cars ' + err.response.text);
             })
             .send();
         if (vehiclesResponse.status !== 200) {
@@ -175,7 +195,7 @@ export class Client {
         return vehicles;
     }
 
-    public async requestClimateControlOff(vin : string) {
+    public async requestClimateControlOff(vin: string) {
         const targetTemperature: number = 21;
 
         const startDateTime = moment().add(5, 's').format();
