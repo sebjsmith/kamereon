@@ -32,112 +32,22 @@ export class Client {
 
         const authenticateUrl = this.settings.EU.auth_base_url + 'json/realms/root/realms/' + this.settings.EU.realm + '/authenticate';
 
-        let authId = null;
+        const authId = await this.getAuthId(authenticateUrl, API_VERSION);
 
-        const maxAttemptsOn401 = 10;
-        for (let attempt = 1; attempt <= maxAttemptsOn401; attempt++) {
+        let { authCookie, realm } = await this.getAuthCookieAndRealm(authenticateUrl, API_VERSION, authId, username, password);
 
-            console.log('Auth attempt ' + attempt);
+        let authorisationCode: string = await this.getAuthorisationCode(realm, authCookie);
 
-            try {
-                let authIdResponse = await superagent
-                    .post(authenticateUrl)
-                    .set('Accept-Api-Version', API_VERSION)
-                    .set('X-Username', 'anonymous')
-                    .set('X-Password', 'anonymous')
-                    .set('Content-Type', 'application/json')
-                    .set('Accept', 'application/json')
-                    .send();
+        const accessToken = await this.getAccessToken(realm, authorisationCode);
+        this.bearerToken = accessToken;
 
-                const authIdResponseBody = JSON.parse(authIdResponse.text);
-                authId = authIdResponseBody.authId;
-                break;
-            } catch (error) {
-                if (error.status === 401 
-                        && error.response.text.contains('Session has timed out') 
-                        && attempt !== maxAttemptsOn401) {
-                    continue;
-                }
-                throw error;
-            }
+        if (!this.bearerToken) {
+            throw new Error('Token not set');
         }
-
-        if (authId === null) {
-            throw 'Auth token unexpectedly null';
-        }
-
-        const tokenIdResponse = await superagent
-            .post(authenticateUrl)
-            .set('Accept-Api-Version', API_VERSION)
-            .set('X-Username', 'anonymous')
-            .set('X-Password', 'anonymous')
-            .set('Content-Type', 'application/json')
-            .set('Accept', 'application/json')
-            .send({
-                'authId': authId,
-                'template': '',
-                'stage': 'LDAP1',
-                'header': 'Sign in',
-                'callbacks': [
-                    {
-                        'type': 'NameCallback',
-                        'output': [
-                            { 'name': 'prompt', 'value': 'User Name:' }
-                        ],
-                        'input': [
-                            { 'name': 'IDToken1', 'value': username }
-                        ]
-                    },
-                    {
-                        'type': 'PasswordCallback',
-                        'output': [
-                            { 'name': 'prompt', 'value': 'Password:' }
-                        ],
-                        'input': [
-                            { 'name': 'IDToken2', 'value': password }
-                        ]
-                    }
-                ]
-            });
-
-        if (tokenIdResponse.status !== 200) {
-            throw new Error('Response was status code: ' + tokenIdResponse.status + ' (' + tokenIdResponse.text + ')');
-        }
-        const tokenIdResponseBody = JSON.parse(tokenIdResponse.text);
-        const authCookie = tokenIdResponseBody.tokenId;
-
-        // Extremely dirty
-        // The http client throws an error due to an invalid URI from the API
-        // We parse the code used for authentication from the error message
-        const authorizeUrl = this.settings.EU.auth_base_url + 'oauth2' + tokenIdResponseBody.realm +
-            '/authorize?client_id=' + this.settings.EU.client_id +
-            '&redirect_uri=' + encodeURIComponent(this.settings.EU.redirect_uri) +
-            '&response_type=code&scope=' + encodeURIComponent(this.settings.EU.scope) +
-            '&nonce=sdfdsfez';
-
-        let code: string;
-
-        try {
-            await superagent
-                .get(authorizeUrl)
-                .on('error', err => {
-                    if (err.status === 302) {
-                        //Expected
-                        code = err.response.header.location.split('=')[1].split('&')[0];
-                    }
-                })
-                .redirects(0)
-                .set('Cookie', 'i18next=en-UK; amlbcookie=05; kauthSession="' + authCookie + '"');
-        } catch (error) {
-            // Handle below
-        }
-
-        if (!code) {
-            throw 'Code was not returned in redirect from authorize request';
-        }
-
-        const expectedAccessTokenResponseUrl = this.settings.EU.auth_base_url + 'oauth2' + tokenIdResponseBody.realm +
-            '/access_token?code=' + code +
+    }
+    private async getAccessToken(realm: any, authorisationCode: string) {
+        const expectedAccessTokenResponseUrl = this.settings.EU.auth_base_url + 'oauth2' + realm +
+            '/access_token?code=' + authorisationCode +
             '&client_id=' + this.settings.EU.client_id +
             '&client_secret=' + this.settings.EU.client_secret +
             '&redirect_uri=' + encodeURIComponent(this.settings.EU.redirect_uri) +
@@ -150,11 +60,120 @@ export class Client {
             throw new Error('Response was status code: ' + expectedAccessTokenResponse.status + ' (' + expectedAccessTokenResponse.text + ')');
         }
         const expectedAccessTokenResponseBody = JSON.parse(expectedAccessTokenResponse.text);
-        this.bearerToken = expectedAccessTokenResponseBody.access_token;
+        return expectedAccessTokenResponseBody.access_token;
+    }
 
-        if (!this.bearerToken) {
-            throw new Error('Token not set');
+    private async getAuthorisationCode(realm: any, authCookie: any) {
+        // Extremely dirty
+        // The http client throws an error due to an invalid URI from the API
+        // We parse the code used for authentication from the error message
+        const authorizeUrl = this.settings.EU.auth_base_url + 'oauth2' + realm +
+            '/authorize?client_id=' + this.settings.EU.client_id +
+            '&redirect_uri=' + encodeURIComponent(this.settings.EU.redirect_uri) +
+            '&response_type=code&scope=' + encodeURIComponent(this.settings.EU.scope) +
+            '&nonce=sdfdsfez';
+
+        let authorisationCode: string;
+
+        try {
+            await superagent
+                .get(authorizeUrl)
+                .on('error', err => {
+                    if (err.status === 302) {
+                        //Expected
+                        authorisationCode = err.response.header.location.split('=')[1].split('&')[0];
+                    }
+                })
+                .redirects(0)
+                .set('Cookie', 'i18next=en-UK; amlbcookie=05; kauthSession="' + authCookie + '"');
+        } catch (error) {
+            // Handle below
         }
+
+        if (!authorisationCode) {
+            throw 'Code was not returned in redirect from authorize request';
+        }
+        return authorisationCode;
+    }
+
+    private async getAuthCookieAndRealm(authenticateUrl, API_VERSION, authId, username, password) {
+        const maxAttemptsOn401 = 10;
+        for (let attempt = 1; attempt <= maxAttemptsOn401; attempt++) {
+            console.log('Auth cookie attempt ' + attempt);
+
+            let tokenIdResponse = null;
+            try {
+                tokenIdResponse = await superagent
+                    .post(authenticateUrl)
+                    .set('Accept-Api-Version', API_VERSION)
+                    .set('X-Username', 'anonymous')
+                    .set('X-Password', 'anonymous')
+                    .set('Content-Type', 'application/json')
+                    .set('Accept', 'application/json')
+                    .send({
+                        'authId': authId,
+                        'template': '',
+                        'stage': 'LDAP1',
+                        'header': 'Sign in',
+                        'callbacks': [
+                            {
+                                'type': 'NameCallback',
+                                'output': [
+                                    { 'name': 'prompt', 'value': 'User Name:' }
+                                ],
+                                'input': [
+                                    { 'name': 'IDToken1', 'value': username }
+                                ]
+                            },
+                            {
+                                'type': 'PasswordCallback',
+                                'output': [
+                                    { 'name': 'prompt', 'value': 'Password:' }
+                                ],
+                                'input': [
+                                    { 'name': 'IDToken2', 'value': password }
+                                ]
+                            }
+                        ]
+                    });
+            }
+            catch (error) {
+                tokenIdResponse = error.response;
+            }
+
+            if (tokenIdResponse.status === 200) {
+                // okay!
+                const tokenIdResponseBody = JSON.parse(tokenIdResponse.text);
+                return {
+                    authCookie: tokenIdResponseBody.tokenId,
+                    realm: tokenIdResponseBody.realm
+                };
+            } else if (tokenIdResponse.status === 401
+                && tokenIdResponse.text.includes('Session has timed out') 
+                && attempt !== maxAttemptsOn401) {
+                // next attempt
+                continue;
+            } else {
+                // don't retry other responses
+                throw 'Auth returned with status ' + tokenIdResponse.status;
+            }
+        }
+
+        throw 'Auth cookie and Realmn unexpectedly null';
+    }
+
+    private async getAuthId(authenticateUrl: string, API_VERSION: string) {
+        const authIdResponse = await superagent
+            .post(authenticateUrl)
+            .set('Accept-Api-Version', API_VERSION)
+            .set('X-Username', 'anonymous')
+            .set('X-Password', 'anonymous')
+            .set('Content-Type', 'application/json')
+            .set('Accept', 'application/json')
+            .send();
+
+        const authIdResponseBody = JSON.parse(authIdResponse.text);
+        return authIdResponseBody.authId;
     }
 
     public async getVehicles(): Promise<Array<IVehicle>> {
