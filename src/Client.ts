@@ -17,13 +17,13 @@ export class Client {
         this.settings = {
             'EU': {
                 'client_id': 'a-ncb-prod-android',
-                'client_secret': '3LBs0yOx2XO-3m4mMRW27rKeJzskhfWF0A8KUtnim8i/qYQPl8ZItp3IaqJXaYj_',
+                'client_secret': '0sAcrtwvwEXXZp5nzQhPexSRhxUVKa0d76F4uqDvxvvKFHXpo4myoJwUuV4vuNqC',
                 'scope': 'openid profile vehicles',
-                'auth_base_url': 'https://prod.eu.auth.kamereon.org/kauth/',
+                'auth_base_url': 'https://prod.eu2.auth.kamereon.org/kauth/',
                 'realm': 'a-ncb-prod',
                 'redirect_uri': 'org.kamereon.service.nci:/oauth2redirect',
-                'car_adapter_base_url': 'https://alliance-platform-caradapter-prod.apps.eu.kamereon.io/car-adapter/',
-                'user_adapter_base_url': 'https://alliance-platform-usersadapter-prod.apps.eu.kamereon.io/user-adapter/',
+                'car_adapter_base_url': 'https://alliance-platform-caradapter-prod.apps.eu2.kamereon.io/car-adapter/',
+                'user_adapter_base_url': 'https://alliance-platform-usersadapter-prod.apps.eu2.kamereon.io/user-adapter/',
                 'user_base_url': 'https://nci-bff-web-prod.apps.eu.kamereon.io/bff-web/'
             }
         };
