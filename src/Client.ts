@@ -309,7 +309,7 @@ export class Client {
 
         return {
             'percentageCharged': batteryResponseBody.data.attributes.batteryLevel,
-            'chargingStatus': batteryResponseBody.data.attributes.chargeStatus != 0 ? ChargingStatus.off : ChargingStatus.on,
+            'chargingStatus': batteryResponseBody.data.attributes.chargeStatus === 0 ? ChargingStatus.off : ChargingStatus.on,
             'timestamp': timestamp
         };
     }
