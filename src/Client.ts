@@ -24,7 +24,7 @@ export class Client {
                 'redirect_uri': 'org.kamereon.service.nci:/oauth2redirect',
                 'car_adapter_base_url': 'https://alliance-platform-caradapter-prod.apps.eu2.kamereon.io/car-adapter/',
                 'user_adapter_base_url': 'https://alliance-platform-usersadapter-prod.apps.eu2.kamereon.io/user-adapter/',
-                'user_base_url': 'https://nci-bff-web-prod.apps.eu.kamereon.io/bff-web/'
+                'user_base_url': 'https://nci-bff-web-prod.apps.eu2.kamereon.io/bff-web/'
             }
         };
 
@@ -71,7 +71,7 @@ export class Client {
             '/authorize?client_id=' + this.settings.EU.client_id +
             '&redirect_uri=' + encodeURIComponent(this.settings.EU.redirect_uri) +
             '&response_type=code&scope=' + encodeURIComponent(this.settings.EU.scope) +
-            '&nonce=sdfdsfez';
+            '&nonce=sdfdsfez&state=af0ifjsldkj';
 
         let authorisationCode: string;
 
