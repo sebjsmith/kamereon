@@ -193,7 +193,7 @@ export class Client {
         const currentUserResponseBody = JSON.parse(currentUserResponse.text);
         const userId = currentUserResponseBody.userId;
 
-        const vehiclesUrl = this.settings.EU.user_base_url + 'v2/users/' + userId + '/cars';
+        const vehiclesUrl = this.settings.EU.user_base_url + 'v5/users/' + userId + '/cars';
         const vehiclesResponse = await superagent
             .get(vehiclesUrl)
             .set('Authorization', 'Bearer ' + this.bearerToken)
